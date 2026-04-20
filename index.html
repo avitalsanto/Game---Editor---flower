@@ -107,6 +107,11 @@ const RadiantPoster = () => {
   const petalAngles = [0, 45, 90, 135, 180, 225, 270, 315];
 
   // מצב המשחק
+  const isPortraitRef = useRef(window.innerHeight / window.innerWidth > 1.25);
+  const [preserveAR, setPreserveAR] = useState(
+    window.innerHeight / window.innerWidth > 1.25 ? 'xMidYMax slice' : 'xMidYMax meet'
+  );
+
   const [gameState, setGameState] = useState('start'); // 'start', 'playing', 'gameover'
   const [renderTick, setRenderTick] = useState(0); 
   const [lives, setLives] = useState(3);
@@ -297,9 +302,10 @@ const RadiantPoster = () => {
       }
 
       const startY = -60 - Math.random() * 220;
+      const spawnX = isPortraitRef.current ? 185 + Math.random() * 430 : 80 + Math.random() * 640;
       entitiesRef.current.push({
         id: Math.random().toString(),
-        x: 80 + Math.random() * 640,
+        x: spawnX,
         y: startY,
         baseY: startY,
         speed: (baseSpeed + Math.random() * 0.55) * speedMult,
@@ -468,6 +474,16 @@ const RadiantPoster = () => {
     };
   }, [gameState]);
 
+  useEffect(() => {
+    const update = () => {
+      const portrait = window.innerHeight / window.innerWidth > 1.25;
+      isPortraitRef.current = portrait;
+      setPreserveAR(portrait ? 'xMidYMax slice' : 'xMidYMax meet');
+    };
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+
   // ניקוי שלם בעת unmount — כדי לא להשאיר אוסילטורים פעילים
   useEffect(() => {
     return () => {
@@ -515,7 +531,9 @@ const RadiantPoster = () => {
     // במגע: ממקמים את הפרח ~110 יח׳-viewBox מעל האצבע, כדי שלא תסתיר אותו
     const touchOffset = isTouch ? 110 : 0;
 
-    flowerPosRef.current.x = Math.max(120, Math.min(680, cursorPoint.x));
+    const xMin = isPortraitRef.current ? 185 : 120;
+    const xMax = isPortraitRef.current ? 615 : 680;
+    flowerPosRef.current.x = Math.max(xMin, Math.min(xMax, cursorPoint.x));
     flowerPosRef.current.y = Math.max(120, Math.min(820, cursorPoint.y - touchOffset));
   };
 
@@ -712,7 +730,7 @@ const RadiantPoster = () => {
         <svg
           ref={svgRef}
           viewBox="0 0 800 1000"
-          preserveAspectRatio="xMidYMax meet"
+          preserveAspectRatio={preserveAR}
           style={{ width:'100%', height:'100%', display:'block', touchAction:'none' }}
           xmlns="http://www.w3.org/2000/svg"
           onMouseMove={(e) => updateFlowerPosition(e.clientX, e.clientY, false)}
