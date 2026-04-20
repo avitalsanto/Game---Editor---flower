@@ -1,0 +1,1180 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
+<title>Radiant Poster</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;700;900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  html,body,#root{
+    width:100%;height:100%;margin:0;overflow:hidden;background:#0d0118;
+    touch-action:none;user-select:none;
+    font-family:'Rubik',system-ui,sans-serif;
+    line-height:1.5;
+    color:#fff;
+  }
+  .num { font-family:'Space Grotesk','Rubik',monospace; font-feature-settings:'tnum' 1; }
+  .display-heb {
+    font-family:'Rubik',sans-serif;
+    font-weight:900;
+    letter-spacing:-0.04em;
+    line-height:1.05;
+  }
+  .heb-body { font-family:'Rubik',sans-serif; line-height:1.5; font-weight:400; }
+  .hud-grid {
+    position:absolute; top:0; left:0; right:0; z-index:20;
+    display:grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    align-items:start;
+    padding: clamp(.9rem,2vw,1.5rem) clamp(1rem,2.6vw,1.8rem);
+    gap: clamp(.6rem,1.5vw,1rem);
+    pointer-events:none;
+  }
+  .hud-cell { display:flex; align-items:center; }
+  .hud-cell.center { justify-content:center; }
+  .hud-cell.end    { justify-content:flex-end; }
+  .chip {
+    display:flex; align-items:center; gap:.55rem;
+    padding: clamp(.4rem,1vw,.7rem) clamp(.75rem,1.6vw,1.1rem);
+    border-radius: 14px;
+    background: rgba(13,1,24,.55);
+    border:1px solid rgba(255,255,255,.08);
+    box-shadow: 0 6px 24px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.05);
+    backdrop-filter: blur(14px) saturate(150%);
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+  }
+  .chip-label {
+    font-family:'Rubik',sans-serif; font-weight:500;
+    font-size: clamp(.6rem, .95vw, .72rem);
+    letter-spacing:.18em; text-transform:uppercase;
+    color: rgba(255,255,255,.5);
+    line-height:1;
+    margin-bottom: 4px;
+  }
+  .chip-value {
+    font-family:'Space Grotesk',monospace; font-weight:800;
+    font-size: clamp(1.25rem, 3vw, 1.75rem);
+    color:#fff; line-height:1;
+    font-feature-settings:'tnum' 1;
+  }
+  .chip-stars-value {
+    font-family:'Space Grotesk',monospace; font-weight:800;
+    font-size: clamp(1.1rem, 2.6vw, 1.55rem);
+    color:#fff5c0; text-shadow:0 0 8px rgba(255,200,40,.5);
+    line-height:1;
+  }
+  .timer-low {
+    color:#ff7a8c !important;
+    text-shadow:0 0 12px rgba(255,80,110,.7);
+    animation: timerPulse .7s ease-in-out infinite;
+  }
+  @keyframes timerPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+  @keyframes heartPop {
+    0% { transform:scale(1) }
+    40% { transform:scale(1.45) }
+    100% { transform:scale(1) }
+  }
+  .game-stage {
+    width:100vw;
+    height:100vh;       /* fallback ל-iOS Safari < 15.4 */
+    height:100dvh;      /* גובה דינמי שמתחשב בסרגל הכתובת */
+    position:relative; overflow:hidden;
+    background: linear-gradient(135deg, #1a0b66 0%, #4e2291 40%, #a33a85 100%);
+    cursor:crosshair;
+    touch-action: none;
+  }
+  .noise-overlay {
+    position:absolute; inset:0; width:100%; height:100%;
+    pointer-events:none; mix-blend-mode:overlay; opacity:.55;
+    z-index:15;
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef } = React;
+
+const RadiantPoster = () => {
+  // זוויות עלי הכותרת
+  const petalAngles = [0, 45, 90, 135, 180, 225, 270, 315];
+
+  // מצב המשחק
+  const [gameState, setGameState] = useState('start'); // 'start', 'playing', 'gameover'
+  const [renderTick, setRenderTick] = useState(0); 
+  const [lives, setLives] = useState(3);
+  const [stars, setStars] = useState(0);
+  const starsRef = useRef(0);
+  const [starPop, setStarPop] = useState(false);
+
+  // טיימר 60 שניות + יעד כוכבים
+  const GAME_DURATION = 60;
+  const STAR_GOAL = 7;
+  const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
+  const timerIdRef = useRef(null);
+  const finalStarsRef = useRef(0);
+  const [endReason, setEndReason] = useState(''); // 'time' | 'lives'
+
+  // Refs לביצועים
+  const flowerPosRef = useRef({ x: 400, y: 400 }); // שונה למערכת צירים X ו-Y
+  const entitiesRef = useRef([]); // מכיל דבורים, חיפושיות ולבבות
+  const livesRef = useRef(3);
+  const lastSpawnRef = useRef(0);
+  const startTimeRef = useRef(0);        // שעת תחילת המשחק לקצב הקושי
+  const openingBurstRef = useRef(false); // פתיחה דרמטית — ספאון מיידי בשנייה הראשונה
+  const frameRef = useRef(null);
+  const svgRef = useRef(null);
+  const isPlayingRef = useRef(false); // שומר על מצב המשחק לבדיקות זריזות בלי closure
+  
+  // הוספת מערכת אינדיקציות ופלאש חזותי
+  const indicatorsRef = useRef([]); 
+  const flashRef = useRef({ color: '', opacity: 0 });
+  const shakeRef = useRef(0);            // עוצמת רעידת מסך
+  const ringsRef = useRef([]);           // טבעות הד מתפשטות סביב הפרח
+  const comboRef = useRef(0);            // רצף אסיפות מוצלח
+  const comboTimerRef = useRef(0);       // טיימר לאיפוס רצף
+  const lastEventRef = useRef(0);        // לזיהוי "כמעט פגיעה"
+  const [bannerMsg, setBannerMsg] = useState(null); // PERFECT! / OUCH! וכו'
+  const bannerTimer = useRef(null);
+
+  // ── סאונד (Web Audio) ──
+  const audioRef = useRef(null);
+  const padNodesRef = useRef(null);
+  const soundOnRef = useRef(true); // נשאר תמיד דלוק; אין UI להחליף
+
+  const getAC = () => {
+    if (!audioRef.current) {
+      try { audioRef.current = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch(e){ return null; }
+    }
+    return audioRef.current;
+  };
+  // iOS/Safari דורשים resume() אחרי מחווה ראשונה של המשתמש
+  const ensureAudio = () => {
+    const ac = getAC(); if (!ac) return null;
+    if (ac.state === 'suspended') {
+      try { ac.resume(); } catch(e) {}
+    }
+    return ac;
+  };
+  const beep = (freq, dur, type='sine', vol=.18, slideTo=null) => {
+    if (!soundOnRef.current) return;
+    const ac = ensureAudio(); if (!ac) return;
+    const o = ac.createOscillator(); const g = ac.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, ac.currentTime);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, ac.currentTime + dur);
+    g.gain.setValueAtTime(vol, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(.0001, ac.currentTime + dur);
+    o.connect(g); g.connect(ac.destination);
+    o.start(); o.stop(ac.currentTime + dur);
+  };
+  const sndHit  = () => { beep(180, .25, 'sawtooth', .22, 60); };
+  const sndLife = () => { beep(660, .12, 'triangle', .18, 990); setTimeout(()=>beep(990,.18,'triangle',.18,1320),90); };
+  const sndCombo= () => { beep(880,.08,'square',.14,1200); setTimeout(()=>beep(1320,.1,'square',.14,1760),70); };
+  const sndOver = () => { beep(220,.6,'sawtooth',.25,55); };
+  const sndStart= () => { beep(440,.1,'sine',.16,660); setTimeout(()=>beep(660,.15,'sine',.16,880),100); };
+
+  // פד אמביינטי רך ברקע — שתי גלים נמוכים עם LFO וסינון נמוך
+  const startAmbient = () => {
+    if (!soundOnRef.current) return;
+    const ac = ensureAudio(); if (!ac) return;
+    if (padNodesRef.current) return;
+    try {
+      const oscA = ac.createOscillator();
+      const oscB = ac.createOscillator();
+      oscA.type = 'sine';     oscA.frequency.value = 110;
+      oscB.type = 'triangle'; oscB.frequency.value = 165;
+      const lp  = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 700; lp.Q.value = .7;
+      const g   = ac.createGain(); g.gain.value = 0.0001;
+      g.gain.exponentialRampToValueAtTime(0.045, ac.currentTime + 1.4);
+      oscA.connect(lp); oscB.connect(lp); lp.connect(g); g.connect(ac.destination);
+      oscA.start(); oscB.start();
+      const lfo = ac.createOscillator(); lfo.frequency.value = 0.13;
+      const lfoGain = ac.createGain(); lfoGain.gain.value = 14;
+      lfo.connect(lfoGain); lfoGain.connect(oscB.frequency);
+      lfo.start();
+      padNodesRef.current = { oscA, oscB, lfo, g, ac };
+    } catch(e) {}
+  };
+  const stopAmbient = () => {
+    const nodes = padNodesRef.current;
+    if (!nodes) return;
+    const { oscA, oscB, lfo, g, ac } = nodes;
+    try {
+      g.gain.cancelScheduledValues(ac.currentTime);
+      g.gain.setValueAtTime(g.gain.value || 0.0001, ac.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.5);
+      oscA.stop(ac.currentTime + 0.6);
+      oscB.stop(ac.currentTime + 0.6);
+      lfo.stop(ac.currentTime + 0.6);
+    } catch(e) {}
+    padNodesRef.current = null;
+  };
+
+  // מקור אמת יחיד לסיום המשחק — מונע race conditions בין הטיימר ל-rAF
+  const endGame = (reason) => {
+    if (!isPlayingRef.current) return; // כבר הסתיים
+    isPlayingRef.current = false;
+    finalStarsRef.current = starsRef.current;
+    cancelAnimationFrame(frameRef.current);
+    frameRef.current = null;
+    if (timerIdRef.current) { clearInterval(timerIdRef.current); timerIdRef.current = null; }
+    stopAmbient();
+    sndOver();
+    setEndReason(reason);
+    setGameState('gameover');
+  };
+
+  const flashBanner = (text, color) => {
+    setBannerMsg({ text, color });
+    if (bannerTimer.current) clearTimeout(bannerTimer.current);
+    bannerTimer.current = setTimeout(()=>setBannerMsg(null), 700);
+  };
+
+  const gameLoop = (time) => {
+    // שמירה כפולה: גם closure וגם ref חיים — ref לא מתעדכן בעיכוב
+    if (!isPlayingRef.current || gameState !== 'playing') return;
+    if (livesRef.current <= 0) return;
+
+    if (lastSpawnRef.current === 0) lastSpawnRef.current = time;
+    if (startTimeRef.current === 0) startTimeRef.current = time;
+
+    // קצב הקושי לפי זמן שעבר (שניות), לא לפי ניקוד — מתחיל מהר ומסתיים מטורף
+    const elapsedSec = (time - startTimeRef.current) / 1000;
+    const spawnRate = Math.max(500, 950 - elapsedSec * 10);
+    const baseSpeed = 1.05 + elapsedSec / 75;
+
+    // פתיחה דרמטית: ספאון מיידי של 3 ישויות בשנייה הראשונה
+    if (!openingBurstRef.current && elapsedSec > 0.25) {
+      openingBurstRef.current = true;
+      const burstTypes = ['ladybug', 'star', 'bee'];
+      for (let k = 0; k < 3; k++) {
+        const t = burstTypes[k];
+        const sm = t === 'star' ? 0.6 : (t === 'ladybug' ? 0.95 : 0.9);
+        entitiesRef.current.push({
+          id: Math.random().toString(),
+          x: 200 + k * 180 + (Math.random() - 0.5) * 60,
+          y: -60 - k * 90,
+          baseY: -60 - k * 90,
+          speed: (baseSpeed + Math.random() * 0.45) * sm,
+          type: t,
+          rotation: (Math.random() - 0.5) * 15,
+          spawnTime: time
+        });
+      }
+    }
+
+    // יצירת ישויות חדשות (אויבים או בונוסים)
+    if (time - lastSpawnRef.current > spawnRate) {
+      const rand = Math.random();
+      let type = 'bee';
+      let speedMult = 1;
+
+      // ~40% כוכבים, ~56% אויבים, ~4% לבבות (נדיר) — אויבים -10% מהקודם
+      if (rand > 0.96) {
+        type = 'heart';
+        speedMult = 0.7;
+      } else if (rand > 0.56) {
+        type = 'star';
+        speedMult = 0.6;
+      } else if (rand > 0.374) {
+        type = 'spider';
+        speedMult = 1.7;
+      } else if (rand > 0.186) {
+        type = 'ladybug';
+        speedMult = 0.95;
+      } else {
+        type = 'bee';
+        speedMult = 0.9;
+      }
+
+      entitiesRef.current.push({
+        id: Math.random().toString(),
+        x: 120 + Math.random() * 560,
+        y: -60,
+        baseY: -60,
+        speed: (baseSpeed + Math.random() * 0.55) * speedMult,
+        type: type,
+        rotation: type === 'spider' ? 0 : (Math.random() - 0.5) * 15,
+        spawnTime: time 
+      });
+      lastSpawnRef.current = time;
+    }
+
+    const hitRadius = 45; // רדיוס פגיעה נדיב יותר — קל לאסוף וקל להיפגע
+
+    for (let i = entitiesRef.current.length - 1; i >= 0; i--) {
+      const ent = entitiesRef.current[i];
+      if (ent.type === 'spider') {
+        ent.baseY += ent.speed * 0.4;
+        ent.y = ent.baseY + Math.sin((Date.now() - ent.spawnTime) / 400) * 150;
+      } else {
+        ent.y += ent.speed;
+      }
+
+      // חישוב מרחק מדויק מהמיקום הדינמי של הפרח
+      const dx = ent.x - flowerPosRef.current.x;
+      const dy = ent.y - flowerPosRef.current.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < hitRadius) {
+        if (ent.type === 'star') {
+          // איסוף כוכב — מטרת המשחק
+          starsRef.current += 1;
+          setStars(starsRef.current);
+          setStarPop(true); setTimeout(()=>setStarPop(false), 380);
+          indicatorsRef.current.push({
+            id: Math.random().toString(),
+            x: ent.x, y: flowerPosRef.current.y - 20,
+            kind: 'star', value: '+25',
+            color: '#ffe066', opacity: 1, velocity: -1.6
+          });
+          flashRef.current = { color: '#ffe066', opacity: .55 };
+          ringsRef.current.push({ id: Math.random().toString(), x: flowerPosRef.current.x, y: flowerPosRef.current.y, r: 38, opacity: .9, color: '#ffe066' });
+          // צליל "spark" עליון מנצנץ
+          beep(1320,.08,'triangle',.18,1980);
+          setTimeout(()=>beep(1760,.1,'triangle',.16,2640),70);
+          setTimeout(()=>beep(2200,.12,'triangle',.14,2960),140);
+          entitiesRef.current.splice(i, 1);
+        } else if (ent.type === 'heart') {
+          // איסוף חיים — combo, צליל, טבעת
+          livesRef.current = Math.min(livesRef.current + 1, 3);
+          setLives(livesRef.current);
+          comboRef.current += 1;
+          comboTimerRef.current = 90;
+          // אינדיקציה גרפית — לב + מספר בלבד
+          indicatorsRef.current.push({
+            id: Math.random().toString(),
+            x: ent.x, y: flowerPosRef.current.y - 20,
+            kind: 'gain', value: comboRef.current >= 2 ? `×${comboRef.current}` : '+1',
+            color: '#ff4d94', opacity: 1, velocity: -1.6
+          });
+          flashRef.current = { color: '#ff4d94', opacity: .55 };
+          ringsRef.current.push({ id: Math.random().toString(), x: flowerPosRef.current.x, y: flowerPosRef.current.y, r: 40, opacity: .9, color: '#ff4d94' });
+          if (comboRef.current >= 3) sndCombo(); else sndLife();
+          entitiesRef.current.splice(i, 1);
+        } else {
+          // פגיעה — שייקה, צליל, טבעת אדומה
+          livesRef.current -= 1;
+          setLives(livesRef.current);
+          comboRef.current = 0;
+          shakeRef.current = 18;
+          // אינדיקציה גרפית — לב שבור + מספר
+          indicatorsRef.current.push({
+            id: Math.random().toString(),
+            x: ent.x, y: flowerPosRef.current.y - 20,
+            kind: 'loss', value: '-1',
+            color: '#ff3344', opacity: 1, velocity: -1.6
+          });
+          flashRef.current = { color: '#ff0033', opacity: .75 };
+          ringsRef.current.push({ id: Math.random().toString(), x: flowerPosRef.current.x, y: flowerPosRef.current.y, r: 35, opacity: 1, color: '#ff2244' });
+          sndHit();
+          entitiesRef.current.splice(i, 1);
+          
+          if (livesRef.current <= 0) {
+            endGame('lives');
+            return;
+          }
+        }
+      } else if (distance < hitRadius + 28 && ent.y > flowerPosRef.current.y + 20 && lastEventRef.current !== ent.id) {
+        lastEventRef.current = ent.id;
+        if (ent.type !== 'heart') {
+          // אינדיקציית התחמקות גרפית — סמל ברק
+          indicatorsRef.current.push({
+            id: Math.random().toString(),
+            x: ent.x, y: ent.y - 20,
+            kind: 'dodge', value: '',
+            color: '#7af6ff', opacity: 1, velocity: -1.2
+          });
+          beep(1100,.06,'sine',.08,1500);
+        }
+      }
+    }
+
+    entitiesRef.current = entitiesRef.current.filter(ent => ent.y < 1050);
+
+    // עדכון תנועת האינדיקציות המרחפות (Floating text)
+    for (let i = indicatorsRef.current.length - 1; i >= 0; i--) {
+      const ind = indicatorsRef.current[i];
+      ind.y += ind.velocity;
+      ind.opacity -= 0.02; // דהייה הדרגתית
+      if (ind.opacity <= 0) {
+        indicatorsRef.current.splice(i, 1);
+      }
+    }
+
+    // עדכון הבהוב הפרח
+    if (flashRef.current.opacity > 0) {
+      flashRef.current.opacity -= 0.03;
+    }
+
+    // עדכון טבעות הד
+    for (let i = ringsRef.current.length - 1; i >= 0; i--) {
+      const r = ringsRef.current[i];
+      r.r += 7;
+      r.opacity -= .04;
+      if (r.opacity <= 0) ringsRef.current.splice(i,1);
+    }
+
+    // דעיכת שייקה וטיימר combo
+    if (shakeRef.current > 0) shakeRef.current = Math.max(0, shakeRef.current - 1.2);
+    if (comboTimerRef.current > 0) {
+      comboTimerRef.current--;
+      if (comboTimerRef.current === 0) comboRef.current = 0;
+    }
+
+    setRenderTick(t => t + 1);
+    frameRef.current = requestAnimationFrame(gameLoop);
+  };
+
+  useEffect(() => {
+    if (gameState === 'playing') {
+      isPlayingRef.current = true;
+      lastSpawnRef.current = 0;
+      frameRef.current = requestAnimationFrame(gameLoop);
+
+      // טיימר ספירה לאחור
+      setTimeLeft(GAME_DURATION);
+      timerIdRef.current = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            endGame('time');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      // פד אמביינטי כל עוד משחקים
+      startAmbient();
+    } else {
+      // עוצר את הפד בכל מצב לא-משחקי
+      isPlayingRef.current = false;
+      stopAmbient();
+    }
+    return () => {
+      isPlayingRef.current = false;
+      cancelAnimationFrame(frameRef.current);
+      if (timerIdRef.current) { clearInterval(timerIdRef.current); timerIdRef.current = null; }
+    };
+  }, [gameState]);
+
+  // ניקוי שלם בעת unmount — כדי לא להשאיר אוסילטורים פעילים
+  useEffect(() => {
+    return () => {
+      stopAmbient();
+      if (audioRef.current) {
+        try { audioRef.current.close(); } catch(e) {}
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
+  const startGame = () => {
+    entitiesRef.current = [];
+    indicatorsRef.current = [];
+    ringsRef.current = [];
+    flashRef.current = { color: '', opacity: 0 };
+    shakeRef.current = 0;
+    comboRef.current = 0;
+    comboTimerRef.current = 0;
+    livesRef.current = 3;
+    setLives(3);
+    starsRef.current = 0;
+    setStars(0);
+    setStarPop(false);
+    setBannerMsg(null);
+    setTimeLeft(GAME_DURATION);
+    setEndReason('');
+    startTimeRef.current = 0;     // יוגדר בפריים הראשון של gameLoop
+    finalStarsRef.current = 0;
+    openingBurstRef.current = false;
+    flowerPosRef.current = { x: 400, y: 400 };
+    // נדחף resume בתוך מחווה ראשונה — קריטי ל־iOS Safari
+    ensureAudio();
+    sndStart();
+    setGameState('playing');
+  };
+
+  const updateFlowerPosition = (clientX, clientY, isTouch = false) => {
+    if (gameState !== 'playing' || !svgRef.current) return;
+    const pt = svgRef.current.createSVGPoint();
+    pt.x = clientX;
+    pt.y = clientY;
+    const cursorPoint = pt.matrixTransform(svgRef.current.getScreenCTM().inverse());
+
+    // במגע: ממקמים את הפרח ~110 יח׳-viewBox מעל האצבע, כדי שלא תסתיר אותו
+    const touchOffset = isTouch ? 110 : 0;
+
+    flowerPosRef.current.x = Math.max(120, Math.min(680, cursorPoint.x));
+    flowerPosRef.current.y = Math.max(200, Math.min(800, cursorPoint.y - touchOffset));
+  };
+
+  const HeartIcon = ({size=24, fill="#ff4d94", glow=true}) => {
+    const isCss = typeof size === 'string';
+    const styleProp = {
+      filter: glow ? 'drop-shadow(0 0 6px #ff4d94)' : 'none',
+      transition:'all .35s',
+      ...(isCss ? { width:size, height:size } : {})
+    };
+    return (
+      <svg {...(isCss ? {} : { width:size, height:size })}
+           viewBox="0 0 24 24" fill={fill} style={styleProp}>
+        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+      </svg>
+    );
+  };
+
+  return (
+    <div dir="rtl" className="game-stage">
+      <div style={{
+        position:'absolute', inset:0, overflow:'hidden',
+        transform: shakeRef.current ? `translate(${(Math.random()-.5)*shakeRef.current}px,${(Math.random()-.5)*shakeRef.current}px)` : 'none'
+      }}>
+        
+        {/* מסכי פתיחה/סיום */}
+        {gameState !== 'playing' && (
+          <div style={{
+            position:'absolute', inset:0, zIndex:30,
+            display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+            background:'rgba(10,0,20,.82)', backdropFilter:'blur(14px) saturate(140%)',
+            padding:'clamp(1.5rem,4vw,3rem)', textAlign:'center'
+          }}>
+            {(() => {
+              const isGameOver = gameState === 'gameover';
+              const won = isGameOver && finalStarsRef.current >= STAR_GOAL;
+              const n = finalStarsRef.current;
+
+              const titleText = isGameOver
+                ? (won
+                    ? 'ניצחת!'
+                    : (endReason === 'lives' ? 'הניצוץ כבה' : 'הזמן נגמר'))
+                : 'ניצוץ';
+
+              const titleColor = isGameOver
+                ? (won ? '#ffd86b' : '#ff7a8c')
+                : '#f6e3ff';
+
+              const subText = isGameOver
+                ? (won
+                    ? `אספת ${n} ניצוצות. כל הכבוד!`
+                    : (endReason === 'lives'
+                        ? 'האויבים פגעו בך יותר מדי. נסה להתחמק'
+                        : `אספת רק ${n} ניצוצות. צריך לפחות ${STAR_GOAL}`))
+                : `דקה אחת. אספ/י ${STAR_GOAL} ניצוצות והיזהר/י מהאויבים`;
+
+              return (
+                <>
+                  <h1 className="display-heb" style={{
+                    fontSize:'clamp(3rem, 9vw, 6rem)',
+                    margin:'0 0 clamp(.6rem,1.4vw,1.1rem)',
+                    color: titleColor,
+                    lineHeight:1.05
+                  }}>{titleText}</h1>
+
+                  <p className="heb-body" style={{
+                    fontSize:'clamp(1.05rem, 2.2vw, 1.4rem)',
+                    opacity:.78, fontWeight:400,
+                    margin:'0 0 clamp(1.4rem,3vw,2.4rem)',
+                    maxWidth:'36ch',
+                    color:'#fff'
+                  }}>
+                    {subText}
+                  </p>
+                </>
+              );
+            })()}
+
+            <button onClick={startGame}
+              onTouchStart={() => { ensureAudio(); }}
+              className="heb-body" style={{
+              fontWeight:800,
+              fontSize:'clamp(1rem,2vw,1.25rem)',
+              padding:'clamp(.9rem,2vw,1.3rem) clamp(2rem,5vw,3.5rem)',
+              background:'linear-gradient(135deg,#411de8,#b34dff 55%,#f576cf)',
+              color:'#fff', border:'none', borderRadius:'9999px',
+              boxShadow:'0 8px 32px rgba(176,77,235,.45), 0 2px 0 rgba(255,255,255,.12) inset',
+              cursor:'pointer', transition:'transform .22s cubic-bezier(.2,1.3,.4,1)',
+              letterSpacing:'-.005em',
+              WebkitTapHighlightColor: 'transparent'
+            }}
+            onMouseEnter={e=>e.currentTarget.style.transform='scale(1.04)'}
+            onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}
+            >
+              {gameState === 'gameover'
+                ? (finalStarsRef.current >= STAR_GOAL ? 'משחק חדש' : 'נסה שוב')
+                : 'התחל משחק'}
+            </button>
+          </div>
+        )}
+
+        <style>{`
+          @keyframes comboPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.18)} }
+        `}</style>
+
+        {/* HUD על גריד 3 עמודות — בלי בר רקע */}
+        {gameState === 'playing' && (
+          <div className="hud-grid">
+            {/* ימין (RTL): ניצוצות — ספירה בלבד */}
+            <div className="hud-cell" style={{ gap:'clamp(.5rem,1.2vw,.8rem)' }}>
+              <div className="chip" style={{
+                flexDirection:'column', alignItems:'flex-start',
+                transform: starPop ? 'scale(1.12)' : 'scale(1)',
+                transition:'transform .28s cubic-bezier(.22,1.4,.5,1)'
+              }}>
+                <span className="chip-label" style={{ color:'rgba(255,224,102,.7)' }}>ניצוצות</span>
+                <span style={{ display:'flex', alignItems:'center', gap:'.45rem' }}>
+                  <svg width="clamp(18px,2.2vw,22px)" height="clamp(18px,2.2vw,22px)" viewBox="-18 -18 36 36"
+                       style={{filter:'drop-shadow(0 0 5px #ffe066)'}}>
+                    <defs>
+                      <radialGradient id="hud-star" cx="40%" cy="35%" r="80%">
+                        <stop offset="0%" stopColor="#fffbd0"/>
+                        <stop offset="50%" stopColor="#ffe066"/>
+                        <stop offset="100%" stopColor="#ffaa1a"/>
+                      </radialGradient>
+                    </defs>
+                    <g>
+                      <path d="M 0 -15 L 3 -3 L 15 0 L 3 3 L 0 15 L -3 3 L -15 0 L -3 -3 Z"
+                            fill="url(#hud-star)" stroke="#fff" strokeWidth=".8" strokeLinejoin="round"/>
+                      <circle cx="0" cy="0" r="2.2" fill="#fff"/>
+                    </g>
+                  </svg>
+                  <span className="chip-stars-value">{stars}</span>
+                </span>
+              </div>
+            </div>
+
+            {/* אמצע: טיימר + תג קומבו (אם פעיל) */}
+            <div className="hud-cell center" style={{ flexDirection:'column', gap:'clamp(.4rem,1vw,.6rem)' }}>
+              <div className="chip" style={{
+                flexDirection:'column', alignItems:'center',
+                minWidth:'clamp(80px,12vw,110px)'
+              }}>
+                <span className="chip-label">זמן</span>
+                <span className={`chip-value ${timeLeft <= 10 ? 'timer-low' : ''}`}>
+                  0:{String(timeLeft).padStart(2,'0')}
+                </span>
+              </div>
+              {comboRef.current >= 2 && (
+                <div style={{
+                  display:'flex', alignItems:'center', gap:'.4rem',
+                  fontFamily:"'Space Grotesk','Rubik',sans-serif", fontWeight:800,
+                  fontSize:'clamp(.85rem,1.6vw,1rem)',
+                  color:'#fff', background:'linear-gradient(135deg,#ff8a3d,#ff3d8a)',
+                  padding:'.3rem .7rem', borderRadius:'9999px',
+                  boxShadow:'0 0 18px rgba(255,80,140,.7)',
+                  animation:'comboPulse .5s ease-in-out infinite'
+                }}>
+                  <HeartIcon size={14} fill="#fff" glow={false}/>
+                  ×{comboRef.current}
+                </div>
+              )}
+            </div>
+
+            {/* שמאל (RTL): חיים */}
+            <div className="hud-cell end">
+              <div className="chip" style={{ flexDirection:'column', alignItems:'flex-end' }}>
+                <span className="chip-label">חיים</span>
+                <span style={{ display:'flex', gap:'clamp(4px,1vw,8px)' }}>
+                  {[...Array(3)].map((_, i) => (
+                    <span key={i} style={{
+                      display:'flex',
+                      animation: i === lives - 1 && i < 3 ? 'heartPop .4s ease' : 'none'
+                    }}>
+                      <HeartIcon
+                        size={"clamp(20px,2.6vw,26px)"}
+                        fill={i < lives ? "#ff4d94" : "rgba(255,255,255,.12)"}
+                        glow={i < lives}
+                      />
+                    </span>
+                  ))}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* וינייטה אדומה כשנותרו ≤2 חיים */}
+        {gameState === 'playing' && lives <= 2 && (
+          <div className="absolute inset-0 z-10 pointer-events-none"
+               style={{ boxShadow:'inset 0 0 80px 20px rgba(255,30,60,.45)', animation:'comboPulse 1.2s ease-in-out infinite' }}/>
+        )}
+
+        <svg
+          ref={svgRef}
+          viewBox="0 0 800 1000"
+          preserveAspectRatio="xMidYMid meet"
+          style={{ width:'100%', height:'100%', display:'block', touchAction:'none' }}
+          xmlns="http://www.w3.org/2000/svg"
+          onMouseMove={(e) => updateFlowerPosition(e.clientX, e.clientY, false)}
+          onMouseDown={() => { ensureAudio(); }}
+          onTouchStart={(e) => {
+            ensureAudio();
+            if (e.touches[0]) updateFlowerPosition(e.touches[0].clientX, e.touches[0].clientY, true);
+          }}
+          onTouchMove={(e) => {
+            if (e.touches[0]) updateFlowerPosition(e.touches[0].clientX, e.touches[0].clientY, true);
+          }}
+        >
+          <defs>
+            <linearGradient id="bg-grad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#1a0b66" />
+              <stop offset="40%" stopColor="#4e2291" />
+              <stop offset="100%" stopColor="#a33a85" />
+            </linearGradient>
+
+            <filter id="ambient-glow" x="-100%" y="-100%" width="300%" height="300%">
+              <feGaussianBlur stdDeviation="30" result="blur" />
+            </filter>
+
+            <filter id="entity-glow" x="-150%" y="-150%" width="400%" height="400%">
+              <feGaussianBlur stdDeviation="20" result="blur" />
+            </filter>
+
+            {/* גרדיאנט לבועת האנרגיה החדשה */}
+            <radialGradient id="bubble-grad" cx="30%" cy="30%" r="80%">
+              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.9" />
+              <stop offset="25%" stopColor="#ffccf2" stopOpacity="0.3" />
+              <stop offset="70%" stopColor="#ff007f" stopOpacity="0.1" />
+              <stop offset="100%" stopColor="#ff007f" stopOpacity="0.7" />
+            </radialGradient>
+
+            <radialGradient id="bee-body-grad" cx="40%" cy="40%" r="70%">
+              <stop offset="0%" stopColor="#fffb00" />
+              <stop offset="60%" stopColor="#ff9900" />
+              <stop offset="100%" stopColor="#663300" />
+            </radialGradient>
+
+            <radialGradient id="ladybug-body-grad" cx="40%" cy="40%" r="70%">
+              <stop offset="0%" stopColor="#ff4d4d" />
+              <stop offset="70%" stopColor="#b30000" />
+              <stop offset="100%" stopColor="#330000" />
+            </radialGradient>
+
+            <radialGradient id="spider-body-grad" cx="40%" cy="30%" r="70%">
+              <stop offset="0%"   stopColor="#9933ff" />
+              <stop offset="60%"  stopColor="#330066" />
+              <stop offset="100%" stopColor="#110022" />
+            </radialGradient>
+
+            {/* כוכב זהב — מולטי-סטופ לעומק */}
+            <radialGradient id="star-grad" cx="40%" cy="35%" r="80%">
+              <stop offset="0%"  stopColor="#fffbd0"/>
+              <stop offset="35%" stopColor="#ffe066"/>
+              <stop offset="70%" stopColor="#ffaa1a"/>
+              <stop offset="100%" stopColor="#7a4a00"/>
+            </radialGradient>
+            <radialGradient id="star-halo" cx="50%" cy="50%" r="60%">
+              <stop offset="0%" stopColor="#ffe066" stopOpacity=".9"/>
+              <stop offset="100%" stopColor="#ffe066" stopOpacity="0"/>
+            </radialGradient>
+
+            <radialGradient id="petal-outer-grad" cx="50%" cy="100%" r="100%">
+              <stop offset="0%" stopColor="#0b04c9" />
+              <stop offset="40%" stopColor="#8735eb" />
+              <stop offset="85%" stopColor="#df8af2" />
+              <stop offset="100%" stopColor="#ffffff" />
+            </radialGradient>
+
+            <radialGradient id="petal-inner-grad" cx="50%" cy="100%" r="100%">
+              <stop offset="0%" stopColor="#0802a3" />
+              <stop offset="50%" stopColor="#6e22cf" />
+              <stop offset="90%" stopColor="#d27df5" />
+              <stop offset="100%" stopColor="#ffffff" />
+            </radialGradient>
+
+            <linearGradient id="stem-grad" gradientUnits="userSpaceOnUse"
+                            x1="380" y1="400" x2="420" y2="900">
+              <stop offset="0%"   stopColor="#f76ae4" />
+              <stop offset="60%"  stopColor="#2c14cc" />
+              <stop offset="100%" stopColor="#6cecf5" />
+            </linearGradient>
+
+            <linearGradient id="leaf-grad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#f56ceb" />
+              <stop offset="50%" stopColor="#601eb5" />
+              <stop offset="100%" stopColor="#080352" />
+            </linearGradient>
+
+            <radialGradient id="vase-dome-grad" cx="50%" cy="15%" r="80%">
+              <stop offset="0%" stopColor="#ff70e3" />
+              <stop offset="40%" stopColor="#712de8" />
+              <stop offset="100%" stopColor="#0c047d" />
+            </radialGradient>
+            
+            <linearGradient id="vase-lip-grad" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#ffa1eb" />
+              <stop offset="50%" stopColor="#8124f0" />
+              <stop offset="100%" stopColor="#0a0366" />
+            </linearGradient>
+
+            <clipPath id="center-image-clip">
+              <circle cx="0" cy="0" r="82" />
+            </clipPath>
+          </defs>
+
+          {/* רקע מטופל ב-CSS על .game-stage כדי למנוע תפר בלטרבוקס */}
+
+          {/* הילה קבועה סביב הפרח */}
+          <circle 
+            cx={flowerPosRef.current.x} 
+            cy={flowerPosRef.current.y} 
+            r="120" 
+            fill="#d97ef5" 
+            filter="url(#ambient-glow)" 
+            opacity="0.25" 
+          />
+
+          {/* הבהוב פגיעה/ריפוי אקטיבי (Flash) */}
+          {flashRef.current && flashRef.current.opacity > 0 && (
+            <circle 
+              cx={flowerPosRef.current.x} 
+              cy={flowerPosRef.current.y} 
+              r="100" 
+              fill={flashRef.current.color} 
+              filter="url(#ambient-glow)" 
+              opacity={flashRef.current.opacity} 
+            />
+          )}
+
+          {/* טבעות הד מתפשטות (פיידבק לאינטראקציה) */}
+          {ringsRef.current.map(rg => (
+            <circle key={rg.id} cx={rg.x} cy={rg.y} r={rg.r} fill="none"
+              stroke={rg.color} strokeWidth="3" opacity={rg.opacity} />
+          ))}
+
+          <g id="entities">
+            {entitiesRef.current.map(ent => (
+              <g key={ent.id} transform={`translate(${ent.x}, ${ent.y}) rotate(${ent.rotation})`}>
+                {ent.type === 'bee' && (
+                  <g>
+                    <circle cx="0" cy="0" r="30" fill="#ffaa00" filter="url(#entity-glow)" opacity="0.2" />
+                    <g opacity="0.75">
+                      <path d="M -5 -5 Q -25 -35 -12 -40 Q 0 -40 5 -5" fill="rgba(200, 230, 255, 0.5)" stroke="#fff" strokeWidth="0.5" />
+                      <path d="M 5 -5 Q 25 -35 12 -40 Q 0 -40 -5 -5" fill="rgba(200, 230, 255, 0.5)" stroke="#fff" strokeWidth="0.5" />
+                    </g>
+                    <ellipse cx="0" cy="0" rx="16" ry="22" fill="url(#bee-body-grad)" stroke="#fff" strokeWidth="0.5" opacity="0.9" />
+                    <path d="M -14 -6 Q 0 -10 14 -6" fill="none" stroke="#221100" strokeWidth="5" strokeLinecap="round" />
+                    <path d="M -15 4 Q 0 0 15 4" fill="none" stroke="#221100" strokeWidth="5" strokeLinecap="round" />
+                  </g>
+                )}
+                
+                {ent.type === 'ladybug' && (
+                  <g>
+                    {/* הילה אדומה רכה */}
+                    <circle cx="0" cy="0" r="32" fill="#ff3344" filter="url(#entity-glow)" opacity=".3"/>
+                    {/* 6 רגליים דקות מתחת לקונכייה */}
+                    <g stroke="#0a0000" strokeWidth="1.8" strokeLinecap="round" fill="none">
+                      <path d="M -14 -8 Q -22 -14 -26 -16"/>
+                      <path d="M  14 -8 Q  22 -14  26 -16"/>
+                      <path d="M -16  0 Q -24   2 -28   4"/>
+                      <path d="M  16  0 Q  24   2  28   4"/>
+                      <path d="M -14  8 Q -22  14 -26  18"/>
+                      <path d="M  14  8 Q  22  14  26  18"/>
+                    </g>
+                    {/* ראש שחור עם מחושים */}
+                    <ellipse cx="0" cy="-15" rx="9" ry="6" fill="#0a0000"/>
+                    <path d="M -4 -19 Q -7 -24 -8 -26" stroke="#0a0000" strokeWidth="1.2" fill="none" strokeLinecap="round"/>
+                    <path d="M  4 -19 Q  7 -24  8 -26" stroke="#0a0000" strokeWidth="1.2" fill="none" strokeLinecap="round"/>
+                    <circle cx="-7" cy="-26" r="1.4" fill="#0a0000"/>
+                    <circle cx=" 7" cy="-26" r="1.4" fill="#0a0000"/>
+                    {/* עיניים לבנות קטנות */}
+                    <circle cx="-3" cy="-15" r="1.4" fill="#fff"/>
+                    <circle cx=" 3" cy="-15" r="1.4" fill="#fff"/>
+                    <circle cx="-3" cy="-15" r=".6" fill="#000"/>
+                    <circle cx=" 3" cy="-15" r=".6" fill="#000"/>
+                    {/* קונכייה אדומה — חצי עגלגלה תלת־ממדית */}
+                    <ellipse cx="0" cy="2" rx="20" ry="19" fill="url(#ladybug-body-grad)"/>
+                    {/* קו פיצול מרכזי שחור */}
+                    <path d="M 0 -16 L 0 21" stroke="#0a0000" strokeWidth="1.6" strokeLinecap="round"/>
+                    {/* נקודות שחורות סימטריות (3 בכל צד) */}
+                    <circle cx="-9" cy="-5" r="3.2" fill="#0a0000"/>
+                    <circle cx=" 9" cy="-5" r="3.2" fill="#0a0000"/>
+                    <circle cx="-11" cy="7" r="3.2" fill="#0a0000"/>
+                    <circle cx=" 11" cy="7" r="3.2" fill="#0a0000"/>
+                    <circle cx="-6" cy="14" r="2.6" fill="#0a0000"/>
+                    <circle cx=" 6" cy="14" r="2.6" fill="#0a0000"/>
+                    {/* הבהוב לבן זוהר על הקונכייה (3D) */}
+                    <ellipse cx="-6" cy="-4" rx="6" ry="3.5" fill="#fff" opacity=".42" transform="rotate(-25 -6 -4)"/>
+                    <ellipse cx="-9" cy="-7" rx="2" ry="1.2" fill="#fff" opacity=".75"/>
+                    {/* קו רים תחתון כהה לעומק */}
+                    <path d="M -19 4 Q 0 22 19 4" stroke="rgba(80,0,0,.55)" strokeWidth="1.4" fill="none"/>
+                  </g>
+                )}
+
+                {/* חיה חדשה: עכביש על קור */}
+                {ent.type === 'spider' && (
+                  <g>
+                    {/* קור עכביש (החוט למעלה) - הוארך כדי שיישאר מחובר גם כשהעכביש צולל למטה */}
+                    <line x1="0" y1="-1500" x2="0" y2="0" stroke="#ffffff" strokeWidth="1" opacity="0.4" />
+                    <circle cx="0" cy="0" r="25" fill="#9933ff" filter="url(#entity-glow)" opacity="0.2" />
+                    {/* רגליים */}
+                    <path d="M -10 -5 Q -25 -20 -30 -5 M -10 0 Q -30 -5 -35 10 M -10 5 Q -25 15 -25 25 M -5 10 Q -15 25 -10 35" fill="none" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
+                    <path d="M 10 -5 Q 25 -20 30 -5 M 10 0 Q 30 -5 35 10 M 10 5 Q 25 15 25 25 M 5 10 Q 15 25 10 35" fill="none" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
+                    {/* גוף ועיניים */}
+                    <circle cx="0" cy="5" r="14" fill="url(#spider-body-grad)" stroke="#fff" strokeWidth="0.5" />
+                    <circle cx="0" cy="-8" r="9" fill="#111" stroke="#fff" strokeWidth="0.5" />
+                    <circle cx="-3.5" cy="-10" r="2.5" fill="#00ffff" filter="url(#entity-glow)" />
+                    <circle cx="3.5" cy="-10" r="2.5" fill="#00ffff" filter="url(#entity-glow)" />
+                    <circle cx="-3.5" cy="-10" r="1" fill="#fff" />
+                    <circle cx="3.5" cy="-10" r="1" fill="#fff" />
+                  </g>
+                )}
+
+                {ent.type === 'star' && (() => {
+                  const t  = Date.now();
+                  const pulse = 1 + Math.sin(t / 220) * 0.07;
+                  const rot   = (t / 60) % 360;
+                  return (
+                    <g>
+                      {/* הילה רכה */}
+                      <circle cx="0" cy="0" r="36" fill="url(#star-halo)" filter="url(#entity-glow)"/>
+                      <g transform={`scale(${pulse}) rotate(${rot})`}>
+                        {/* sparkle 4-נקודות מרכזי */}
+                        <path d="M 0 -22 Q 3 -3 22 0 Q 3 3 0 22 Q -3 3 -22 0 Q -3 -3 0 -22 Z"
+                              fill="url(#star-grad)" stroke="#fff" strokeWidth="1.1" strokeLinejoin="round"/>
+                        {/* גרעין מבריק */}
+                        <circle cx="0" cy="0" r="3" fill="#fff" opacity=".95"/>
+                        <circle cx="0" cy="0" r="1.4" fill="#fffbe0"/>
+                      </g>
+                      {/* sparkle משני נגד-סיבוב */}
+                      <g transform={`rotate(${-rot * 1.3}) scale(${1 + Math.sin(t/300)*0.12})`} opacity=".82">
+                        <path d="M 0 -12 Q 1.6 -1.6 12 0 Q 1.6 1.6 0 12 Q -1.6 1.6 -12 0 Q -1.6 -1.6 0 -12 Z"
+                              fill="#fff" opacity=".55"/>
+                      </g>
+                      {/* 4 ניצוצות פינתיים זעירים */}
+                      <g opacity=".85" stroke="#fff" strokeWidth="1.1" strokeLinecap="round">
+                        <line x1="16" y1="-16" x2="20" y2="-20"/>
+                        <line x1="-16" y1="16" x2="-20" y2="20"/>
+                        <line x1="16" y1="16" x2="20" y2="20"/>
+                        <line x1="-16" y1="-16" x2="-20" y2="-20"/>
+                      </g>
+                    </g>
+                  );
+                })()}
+
+                {/* הבונוס - בועת אנרגיה הולוגרפית */}
+                {ent.type === 'heart' && (
+                  <g transform={`scale(${1.1 + Math.sin(Date.now() / 150) * 0.05})`}>
+                    
+                    {/* הילת הפלזמה מחוץ לבועה */}
+                    <circle cx="0" cy="0" r="24" fill="#ff007f" filter="url(#entity-glow)" opacity="0.6" />
+                    
+                    {/* כדור הזכוכית המרכזי */}
+                    <circle cx="0" cy="0" r="22" fill="url(#bubble-grad)" stroke="#ff66b3" strokeWidth="1.5" />
+                    
+                    {/* השתקפות האור על הזכוכית למראה 3D אמין */}
+                    <path d="M -12 -14 A 18 18 0 0 1 12 -14" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" opacity="0.8" />
+                    <ellipse cx="-8" cy="-10" rx="4" ry="2" fill="#ffffff" opacity="0.9" transform="rotate(-40 -8 -10)" />
+
+                    {/* לב הניאון הפנימי שפועם בתוך הכדור */}
+                    <g transform={`scale(${0.8 + Math.sin(Date.now() / 100) * 0.1})`}>
+                      <path d="M 0 -2 C -6 -8, -13 -4, -13 2 C -13 8, 0 16, 0 16 C 0 16, 13 8, 13 2 C 13 -4, 6 -8, 0 -2 Z" 
+                            fill="#ffffff" 
+                            filter="url(#entity-glow)" />
+                      <path d="M 0 -2 C -6 -8, -13 -4, -13 2 C -13 8, 0 16, 0 16 C 0 16, 13 8, 13 2 C 13 -4, 6 -8, 0 -2 Z" 
+                            fill="#ffffff" />
+                    </g>
+
+                    {/* חלקיקי אור (כוכבים) שמסתובבים סביב הבועה! */}
+                    <g transform={`rotate(${Date.now() / 8 % 360})`}>
+                      <circle cx="22" cy="0" r="2.5" fill="#ffffff" filter="url(#entity-glow)" />
+                      <circle cx="22" cy="0" r="1.5" fill="#ffffff" />
+                      <circle cx="-22" cy="0" r="2.5" fill="#ffffff" filter="url(#entity-glow)" />
+                      <circle cx="-22" cy="0" r="1.5" fill="#ffffff" />
+                    </g>
+                  </g>
+                )}
+              </g>
+            ))}
+          </g>
+
+          {/* גבעול ועלים מותאמים תלת-ממדית */}
+          <g id="stems-and-leaves">
+            {(() => {
+              const startX = 400;
+              const startY = 888;
+              const endX = flowerPosRef.current.x;
+              const endY = flowerPosRef.current.y;
+              // נקודת בקרה לקימור הגבעול - מגיבה לגובה הפרח
+              const cpX = 400;
+              const cpY = startY - (startY - endY) * 0.4;
+
+              // מתמטיקה לחישוב מיקום וזווית מדויקים על עקומת בזייה 
+              // מבטיח שהעלים יישארו מחוברים לגבעול גם כשהוא נמתח למעלה או מתכווץ למטה
+              const getBezierPoint = (t) => {
+                const invT = 1 - t;
+                const x = invT * invT * startX + 2 * invT * t * cpX + t * t * endX;
+                const y = invT * invT * startY + 2 * invT * t * cpY + t * t * endY;
+                const dx = 2 * invT * (cpX - startX) + 2 * t * (endX - cpX);
+                const dy = 2 * invT * (cpY - startY) + 2 * t * (endY - cpY);
+                const angle = Math.atan2(dy, dx) * (180 / Math.PI) + 90;
+                return { x, y, angle };
+              };
+
+              const leaf1 = getBezierPoint(0.35);
+              const leaf2 = getBezierPoint(0.65);
+
+              return (
+                <>
+                  <path
+                    d={`M ${startX} ${startY} Q ${cpX} ${cpY} ${endX} ${endY}`}
+                    stroke="url(#stem-grad)"
+                    strokeWidth="12"
+                    fill="none"
+                    strokeLinecap="round"
+                  />
+                  <g transform={`translate(${leaf1.x}, ${leaf1.y}) rotate(${leaf1.angle}) scale(0.68)`}>
+                    <path d="M 5 25 Q -130 -15 -160 -120 Q -100 -65 -5 -25 Z" fill="url(#leaf-grad)" />
+                  </g>
+                  <g transform={`translate(${leaf2.x}, ${leaf2.y}) rotate(${leaf2.angle}) scale(0.68)`}>
+                    <path d="M 5 15 Q 130 -15 190 -115 Q 100 -50 0 -15 Z" fill="url(#leaf-grad)" />
+                  </g>
+                </>
+              );
+            })()}
+          </g>
+
+          {/* פרח */}
+          <g id="flowers">
+            <g transform={`translate(${flowerPosRef.current.x}, ${flowerPosRef.current.y}) scale(0.65)`}>
+              {petalAngles.map((angle) => (
+                <path
+                  key={`outer-${angle}`}
+                  transform={`rotate(${angle})`}
+                  d="M 0 0 C -55 -45, -75 -155, 0 -170 C 75 -155, 55 -45, 0 0"
+                  fill="url(#petal-outer-grad)"
+                  stroke="#ffffff"
+                  strokeWidth="2"
+                  opacity="0.95"
+                />
+              ))}
+              {petalAngles.map((angle) => (
+                <path
+                  key={`inner-${angle}`}
+                  transform={`rotate(${angle})`}
+                  d="M 0 0 C -40 -35, -55 -115, 0 -125 C 55 -115, 40 -35, 0 0"
+                  fill="url(#petal-inner-grad)"
+                  stroke="#ffffff"
+                  strokeWidth="1.2"
+                  opacity="0.95"
+                />
+              ))}
+              <circle cx="0" cy="0" r="90" fill="none" stroke="url(#petal-inner-grad)" strokeWidth="6" opacity="0.6" />
+              <circle cx="0" cy="0" r="85" fill="none" stroke="#ffffff" strokeWidth="2" opacity="0.8" />
+              <circle cx="0" cy="0" r="82" fill="#0b04c9" />
+              <image
+                href="https://static.wixstatic.com/media/b4f4e1_05d63f286bd743d2a3038aaa600b4183~mv2.jpg"
+                x="-82"
+                y="-82"
+                width="164"
+                height="164"
+                clipPath="url(#center-image-clip)"
+                preserveAspectRatio="xMidYMid slice"
+              />
+              <circle cx="0" cy="0" r="82" fill="none" stroke="#0802a3" strokeWidth="4" opacity="0.4" style={{ mixBlendMode: 'multiply' }} />
+            </g>
+          </g>
+
+          <g id="vase">
+            <ellipse cx="400" cy="975" rx="140" ry="85" fill="url(#vase-dome-grad)" />
+            <rect x="335" y="888" width="130" height="25" rx="12" fill="url(#vase-lip-grad)" />
+            <path d="M 345 893 L 455 893" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" opacity="0.3" />
+          </g>
+
+          {/* אינדיקציות צף — סמלים גרפיים + מספר בלבד */}
+          <g id="indicators">
+            {indicatorsRef.current.map(ind => (
+              <g key={ind.id} opacity={ind.opacity} transform={`translate(${ind.x},${ind.y})`}>
+                {ind.kind === 'gain' && (
+                  <g>
+                    {/* הילה זוהרת */}
+                    <circle cx="0" cy="0" r="22" fill={ind.color} filter="url(#entity-glow)" opacity=".55"/>
+                    {/* לב זוהר */}
+                    <g transform="translate(-22,-22) scale(1.85)">
+                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                            fill="#ff4d94" stroke="#fff" strokeWidth="1"/>
+                    </g>
+                    {/* מספר/כפל */}
+                    <text x="26" y="6" fill="#fff" fontSize="26" fontWeight="900" textAnchor="start"
+                          style={{ fontFamily:'Space Grotesk,system-ui,sans-serif' }}
+                          stroke="#ff4d94" strokeWidth="1.2" paintOrder="stroke">
+                      {ind.value}
+                    </text>
+                  </g>
+                )}
+
+                {ind.kind === 'loss' && (
+                  <g>
+                    <circle cx="0" cy="0" r="22" fill={ind.color} filter="url(#entity-glow)" opacity=".7"/>
+                    {/* לב שבור (שני חצאים) */}
+                    <g transform="translate(0,0) scale(1.7)">
+                      {/* חצי שמאל */}
+                      <path d="M0 12 L-2 6 L 1 2 L-2 -2 L 1 -6 C-3 -10,-10 -7,-10 -1 C-10 4,0 12,0 12 Z"
+                            fill="#ff3344" stroke="#fff" strokeWidth=".9"/>
+                      {/* חצי ימין (מוסט מעט) */}
+                      <path d="M3 12 L5 6 L 2 2 L 5 -2 L 2 -6 C 6 -10,13 -7,13 -1 C13 4,3 12,3 12 Z"
+                            fill="#ff3344" stroke="#fff" strokeWidth=".9" transform="translate(2,1)"/>
+                    </g>
+                    <text x="26" y="6" fill="#fff" fontSize="26" fontWeight="900" textAnchor="start"
+                          style={{ fontFamily:'Space Grotesk,system-ui,sans-serif' }}
+                          stroke="#ff3344" strokeWidth="1.2" paintOrder="stroke">
+                      {ind.value}
+                    </text>
+                  </g>
+                )}
+
+                {ind.kind === 'star' && (
+                  <g>
+                    <circle cx="0" cy="0" r="22" fill={ind.color} filter="url(#entity-glow)" opacity=".7"/>
+                    <path d="M 0 -16 L 4.7 -5 L 16 -5 L 7.2 2 L 10.5 13 L 0 6.5 L -10.5 13 L -7.2 2 L -16 -5 L -4.7 -5 Z"
+                          fill="url(#star-grad)" stroke="#fff" strokeWidth="1.2" strokeLinejoin="round"/>
+                    <text x="22" y="6" fill="#fff" fontSize="24" fontWeight="900" textAnchor="start"
+                          style={{ fontFamily:'Space Grotesk,system-ui,sans-serif' }}
+                          stroke="#ffaa1a" strokeWidth="1.2" paintOrder="stroke">
+                      {ind.value}
+                    </text>
+                  </g>
+                )}
+
+                {ind.kind === 'dodge' && (
+                  <g>
+                    <circle cx="0" cy="0" r="20" fill={ind.color} filter="url(#entity-glow)" opacity=".55"/>
+                    {/* ברק */}
+                    <path d="M -2 -16 L 6 -2 L 0 -2 L 4 16 L -8 0 L -2 0 Z"
+                          fill="#7af6ff" stroke="#fff" strokeWidth="1.2" strokeLinejoin="round"/>
+                  </g>
+                )}
+              </g>
+            ))}
+          </g>
+
+        </svg>
+
+        {/* שכבת רעש על כל המסך — מכסה גם את אזורי הלטרבוקס */}
+        <svg className="noise-overlay" preserveAspectRatio="none" viewBox="0 0 1000 1000" aria-hidden="true">
+          <defs>
+            <filter id="noise-fs">
+              <feTurbulence type="fractalNoise" baseFrequency="0.35" numOctaves="4" stitchTiles="stitch" />
+              <feColorMatrix type="saturate" values="0" />
+            </filter>
+          </defs>
+          <rect width="1000" height="1000" fill="white" filter="url(#noise-fs)" />
+        </svg>
+      </div>
+
+    </div>
+  );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<RadiantPoster />);
+</script>
+</body>
+</html>
