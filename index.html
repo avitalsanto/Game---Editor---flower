@@ -180,10 +180,10 @@ const RadiantPoster = () => {
     o.connect(g); g.connect(ac.destination);
     o.start(); o.stop(ac.currentTime + dur);
   };
-  const sndHit  = () => { beep(180, .25, 'sawtooth', .22, 60); };
+  const sndHit  = () => { beep(180, .25, 'triangle', .18, 60); };
   const sndLife = () => { beep(660, .12, 'triangle', .18, 990); setTimeout(()=>beep(990,.18,'triangle',.18,1320),90); };
   const sndCombo= () => { beep(880,.08,'square',.14,1200); setTimeout(()=>beep(1320,.1,'square',.14,1760),70); };
-  const sndOver = () => { beep(220,.6,'sawtooth',.25,55); };
+  const sndOver = () => { beep(220,.6,'triangle',.20,55); };
   const sndStart= () => { beep(440,.1,'sine',.16,660); setTimeout(()=>beep(660,.15,'sine',.16,880),100); };
 
   // פד אמביינטי רך ברקע — שתי גלים נמוכים עם LFO וסינון נמוך
@@ -283,18 +283,18 @@ const RadiantPoster = () => {
       let type = 'bee';
       let speedMult = 1;
 
-      // ~9% לבבות, ~48.65% כוכבים, ~16.7% עכבישים, ~12.825% פרת משה רבנו, ~12.825% דבורים
-      // דבורים+פרות משה (אויבים פגיעים) הורדו ב-10% נוספים; עכבישים ולבבות ללא שינוי
-      if (rand > 0.91) {
+      // ~14% לבבות, ~47.5% כוכבים, ~16.7% עכבישים, ~10.9% פרת משה רבנו, ~10.9% דבורים
+      // דבורים+פרות משה (אויבים פגיעים) הורדו ב-15% נוספים; לבבות עלו ב-5 נקודות; עכבישים ללא שינוי
+      if (rand > 0.86) {
         type = 'heart';
         speedMult = 0.7;
-      } else if (rand > 0.4235) {
+      } else if (rand > 0.385025) {
         type = 'star';
         speedMult = 0.6;
-      } else if (rand > 0.2565) {
+      } else if (rand > 0.218025) {
         type = 'spider';
         speedMult = 1.7;
-      } else if (rand > 0.12825) {
+      } else if (rand > 0.1090125) {
         type = 'ladybug';
         speedMult = 0.95;
       } else {
@@ -317,7 +317,7 @@ const RadiantPoster = () => {
       lastSpawnRef.current = time;
     }
 
-    const hitRadius = 78; // רדיוס פגיעה גדול יותר — נבחן במיוחד לפרח המוגדל
+    const hitRadius = 84; // רדיוס פגיעה גדול יותר — נבחן במיוחד לפרח המוגדל
 
     for (let i = entitiesRef.current.length - 1; i >= 0; i--) {
       const ent = entitiesRef.current[i];
@@ -1066,7 +1066,7 @@ const RadiantPoster = () => {
           {/* פרח */}
           <g id="flowers">
             <g transform={`translate(${flowerPosRef.current.x}, ${flowerPosRef.current.y}) scale(0.82)`}>
-              <g transform="scale(0.9)">
+              <g transform="scale(0.9) rotate(22.5)">
                 {petalAngles.map((angle) => (
                   <path
                     key={`outer-${angle}`}
