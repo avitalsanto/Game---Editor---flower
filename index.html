@@ -248,7 +248,7 @@ const RadiantPoster = () => {
 
     // קצב הקושי לפי זמן שעבר (שניות), לא לפי ניקוד — מתחיל מהר ומסתיים מטורף
     const elapsedSec = (time - startTimeRef.current) / 1000;
-    const spawnRate = Math.max(500, 950 - elapsedSec * 10);
+    const spawnRate = Math.max(525, 1000 - elapsedSec * 10);
     const baseSpeed = 1.05 + elapsedSec / 75;
 
     // פתיחה דרמטית: ספאון מיידי של 3 ישויות בשנייה הראשונה
@@ -258,11 +258,12 @@ const RadiantPoster = () => {
       for (let k = 0; k < 3; k++) {
         const t = burstTypes[k];
         const sm = t === 'star' ? 0.6 : (t === 'ladybug' ? 0.95 : 0.9);
+        const burstY = -60 - k * 90 - Math.random() * 80;
         entitiesRef.current.push({
           id: Math.random().toString(),
-          x: 200 + k * 180 + (Math.random() - 0.5) * 60,
-          y: -60 - k * 90,
-          baseY: -60 - k * 90,
+          x: 120 + k * 220 + (Math.random() - 0.5) * 80,
+          y: burstY,
+          baseY: burstY,
           speed: (baseSpeed + Math.random() * 0.45) * sm,
           type: t,
           rotation: (Math.random() - 0.5) * 15,
@@ -295,11 +296,12 @@ const RadiantPoster = () => {
         speedMult = 0.9;
       }
 
+      const startY = -60 - Math.random() * 220;
       entitiesRef.current.push({
         id: Math.random().toString(),
-        x: 120 + Math.random() * 560,
-        y: -60,
-        baseY: -60,
+        x: 80 + Math.random() * 640,
+        y: startY,
+        baseY: startY,
         speed: (baseSpeed + Math.random() * 0.55) * speedMult,
         type: type,
         rotation: type === 'spider' ? 0 : (Math.random() - 0.5) * 15,
@@ -308,7 +310,7 @@ const RadiantPoster = () => {
       lastSpawnRef.current = time;
     }
 
-    const hitRadius = 52; // רדיוס פגיעה נדיב — נבחן במיוחד לפרח המוגדל
+    const hitRadius = 58; // רדיוס פגיעה גדול יותר — נבחן במיוחד לפרח המוגדל
 
     for (let i = entitiesRef.current.length - 1; i >= 0; i--) {
       const ent = entitiesRef.current[i];
@@ -496,7 +498,7 @@ const RadiantPoster = () => {
     startTimeRef.current = 0;     // יוגדר בפריים הראשון של gameLoop
     finalStarsRef.current = 0;
     openingBurstRef.current = false;
-    flowerPosRef.current = { x: 400, y: 340 };
+    flowerPosRef.current = { x: 400, y: 230 };
     // נדחף resume בתוך מחווה ראשונה — קריטי ל־iOS Safari
     ensureAudio();
     sndStart();
@@ -514,7 +516,7 @@ const RadiantPoster = () => {
     const touchOffset = isTouch ? 110 : 0;
 
     flowerPosRef.current.x = Math.max(120, Math.min(680, cursorPoint.x));
-    flowerPosRef.current.y = Math.max(180, Math.min(820, cursorPoint.y - touchOffset));
+    flowerPosRef.current.y = Math.max(120, Math.min(820, cursorPoint.y - touchOffset));
   };
 
   const HeartIcon = ({size=24, fill="#ff4d94", glow=true}) => {
@@ -791,7 +793,7 @@ const RadiantPoster = () => {
             </radialGradient>
 
             <linearGradient id="stem-grad" gradientUnits="userSpaceOnUse"
-                            x1="380" y1="320" x2="420" y2="900">
+                            x1="380" y1="200" x2="420" y2="900">
               <stop offset="0%"   stopColor="#f76ae4" />
               <stop offset="60%"  stopColor="#2c14cc" />
               <stop offset="100%" stopColor="#6cecf5" />
@@ -1071,7 +1073,7 @@ const RadiantPoster = () => {
               <circle cx="0" cy="0" r="85" fill="none" stroke="#ffffff" strokeWidth="2" opacity="0.8" />
               <circle cx="0" cy="0" r="82" fill="#0b04c9" />
               <image
-                href="https://static.wixstatic.com/media/b4f4e1_05d63f286bd743d2a3038aaa600b4183~mv2.jpg"
+                href="https://static.wixstatic.com/media/b4f4e1_992ed95d425a483cb7612a000468ef80~mv2.png"
                 x="-82"
                 y="-82"
                 width="164"
