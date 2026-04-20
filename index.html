@@ -253,7 +253,7 @@ const RadiantPoster = () => {
 
     // קצב הקושי לפי זמן שעבר (שניות), לא לפי ניקוד — מתחיל מהר ומסתיים מטורף
     const elapsedSec = (time - startTimeRef.current) / 1000;
-    const spawnRate = Math.max(525, 1000 - elapsedSec * 10);
+    const spawnRate = Math.max(583, 1111 - elapsedSec * 11.1);
     const baseSpeed = 1.05 + elapsedSec / 75;
 
     // פתיחה דרמטית: ספאון מיידי של 3 ישויות בשנייה הראשונה
@@ -316,7 +316,7 @@ const RadiantPoster = () => {
       lastSpawnRef.current = time;
     }
 
-    const hitRadius = 58; // רדיוס פגיעה גדול יותר — נבחן במיוחד לפרח המוגדל
+    const hitRadius = 78; // רדיוס פגיעה גדול יותר — נבחן במיוחד לפרח המוגדל
 
     for (let i = entitiesRef.current.length - 1; i >= 0; i--) {
       const ent = entitiesRef.current[i];
@@ -514,7 +514,7 @@ const RadiantPoster = () => {
     startTimeRef.current = 0;     // יוגדר בפריים הראשון של gameLoop
     finalStarsRef.current = 0;
     openingBurstRef.current = false;
-    flowerPosRef.current = { x: 400, y: 230 };
+    flowerPosRef.current = { x: 400, y: 290 };
     // נדחף resume בתוך מחווה ראשונה — קריטי ל־iOS Safari
     ensureAudio();
     sndStart();
@@ -872,7 +872,7 @@ const RadiantPoster = () => {
 
           <g id="entities">
             {entitiesRef.current.map(ent => (
-              <g key={ent.id} transform={`translate(${ent.x}, ${ent.y}) rotate(${ent.rotation})`}>
+              <g key={ent.id} transform={`translate(${ent.x}, ${ent.y}) rotate(${ent.rotation}) scale(1.1)`}>
                 {ent.type === 'bee' && (
                   <g>
                     <circle cx="0" cy="0" r="30" fill="#ffaa00" filter="url(#entity-glow)" opacity="0.2" />
