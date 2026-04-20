@@ -283,18 +283,18 @@ const RadiantPoster = () => {
       let type = 'bee';
       let speedMult = 1;
 
-      // ~9% לבבות, ~44.3% כוכבים, ~16.7% עכבישים, ~15% פרת משה רבנו, ~15% דבורים
-      // דבורים+פרות משה (אויבים פגיעים) הורדו ב-10% נוספים; לבבות עלו ב-5 נקודות; עכבישים ללא שינוי
+      // ~9% לבבות, ~45.8% כוכבים, ~16.7% עכבישים, ~14.25% פרת משה רבנו, ~14.25% דבורים
+      // דבורים+פרות משה (אויבים פגיעים) הורדו ב-5% נוספים; עכבישים ולבבות ללא שינוי
       if (rand > 0.91) {
         type = 'heart';
         speedMult = 0.7;
-      } else if (rand > 0.467) {
+      } else if (rand > 0.452) {
         type = 'star';
         speedMult = 0.6;
-      } else if (rand > 0.30) {
+      } else if (rand > 0.285) {
         type = 'spider';
         speedMult = 1.7;
-      } else if (rand > 0.15) {
+      } else if (rand > 0.1425) {
         type = 'ladybug';
         speedMult = 0.95;
       } else {
@@ -1052,10 +1052,10 @@ const RadiantPoster = () => {
                     fill="none"
                     strokeLinecap="round"
                   />
-                  <g transform={`translate(${leaf1.x}, ${leaf1.y}) rotate(${leaf1.angle}) scale(0.68)`}>
+                  <g transform={`translate(${leaf1.x}, ${leaf1.y}) rotate(${leaf1.angle}) scale(0.612)`}>
                     <path d="M 5 25 Q -130 -15 -160 -120 Q -100 -65 -5 -25 Z" fill="url(#leaf-grad)" />
                   </g>
-                  <g transform={`translate(${leaf2.x}, ${leaf2.y}) rotate(${leaf2.angle}) scale(0.68)`}>
+                  <g transform={`translate(${leaf2.x}, ${leaf2.y}) rotate(${leaf2.angle}) scale(0.612)`}>
                     <path d="M 5 15 Q 130 -15 190 -115 Q 100 -50 0 -15 Z" fill="url(#leaf-grad)" />
                   </g>
                 </>
