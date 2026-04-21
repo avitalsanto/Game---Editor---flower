@@ -172,7 +172,7 @@ const PALETTES = {
     name: 'סגול', icon: '💜',
     bg: 'linear-gradient(135deg,#1a0b66 0%,#4e2291 40%,#a33a85 100%)',
     halo: '#d97ef5',
-    tint: 'rgba(140,60,220,0.38)',
+    tint: 'rgba(140,60,220,0.18)',
     petalOuter: ['#0b04c9','#8735eb','#df8af2','#ffffff'],
     petalInner: ['#0802a3','#6e22cf','#d27df5','#ffffff'],
     stem:       ['#f76ae4','#2c14cc','#6cecf5'],
@@ -607,8 +607,6 @@ const RadiantPoster = ({ settings, onBackToEditor, hideBackBtn }) => {
   const comboRef = useRef(0);
   const comboTimerRef = useRef(0);
   const lastEventRef = useRef(0);
-  const [bannerMsg, setBannerMsg] = useState(null);
-  const bannerTimer = useRef(null);
 
   const audioRef = useRef(null);
   const padNodesRef = useRef(null);
@@ -713,7 +711,7 @@ const RadiantPoster = ({ settings, onBackToEditor, hideBackBtn }) => {
       for (let k = 0; k < 4; k++) {
         const t = burstTypes[k];
         const sm = t === 'star' ? 0.6 : (t === 'heart' ? 0.7 : 0.95);
-        const burstY = 80 + k * 90 + Math.random() * 40;
+        const burstY = 30 + k * 60 + Math.random() * 30;
         const baseX = isPortraitRef.current
           ? 200 + k * 80 + (Math.random() - 0.5) * 50
           : 140 + k * 150 + (Math.random() - 0.5) * 70;
@@ -777,7 +775,7 @@ const RadiantPoster = ({ settings, onBackToEditor, hideBackBtn }) => {
         if (ent.type === 'star') {
           starsRef.current += 1;
           setStars(starsRef.current);
-          setStarPop(true); setTimeout(()=>setStarPop(false), 380);
+          setStarPop(true); setTimeout(()=>{ if (isPlayingRef.current) setStarPop(false); }, 380);
           indicatorsRef.current.push({
             id: Math.random().toString(),
             x: ent.x, y: flowerPosRef.current.y - 20,
@@ -840,7 +838,9 @@ const RadiantPoster = ({ settings, onBackToEditor, hideBackBtn }) => {
       }
     }
 
-    entitiesRef.current = entitiesRef.current.filter(ent => ent.y < 1050);
+    for (let i = entitiesRef.current.length - 1; i >= 0; i--) {
+      if (entitiesRef.current[i].y >= 1050) entitiesRef.current.splice(i, 1);
+    }
 
     for (let i = indicatorsRef.current.length - 1; i >= 0; i--) {
       const ind = indicatorsRef.current[i];
@@ -927,12 +927,12 @@ const RadiantPoster = ({ settings, onBackToEditor, hideBackBtn }) => {
     starsRef.current = 0;
     setStars(0);
     setStarPop(false);
-    setBannerMsg(null);
     setTimeLeft(GAME_DURATION);
     setEndReason('');
     startTimeRef.current = 0;
     finalStarsRef.current = 0;
     openingBurstRef.current = false;
+    lastEventRef.current = 0;
     flowerPosRef.current = { x: 400, y: 440 };
     ensureAudio();
     sndStart();
