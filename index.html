@@ -109,7 +109,6 @@ input[type="file"]{display:none}
 .fx-cinema::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:25;background:radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,.55) 100%);mix-blend-mode:multiply}
 .fx-cinema-classic{filter:grayscale(1) contrast(1.18) brightness(1)}
 .fx-cinema-sepia  {filter:grayscale(.3) sepia(.8) contrast(1.12) brightness(1.02)}
-.fx-cinema-noir   {filter:grayscale(.85) contrast(1.22) brightness(.95) hue-rotate(200deg) saturate(1.25)}
 .fx-cinema-bleach {filter:grayscale(.5) contrast(1.28) saturate(.75) brightness(1.05)}
 .fx-crt{filter:saturate(1.35) contrast(1.12) brightness(1.04) drop-shadow(1.2px 0 0 rgba(255,10,80,.6)) drop-shadow(-1.2px 0 0 rgba(0,220,255,.55));animation:crtFlicker 2.2s steps(24) infinite}
 .fx-crt::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:25;background:repeating-linear-gradient(0deg,rgba(0,0,0,.32) 0,rgba(0,0,0,.32) 1px,transparent 1px,transparent 3px);mix-blend-mode:multiply}
@@ -161,7 +160,7 @@ const DEFAULT_CENTER_IMG = 'https://static.wixstatic.com/media/b4f4e1_f8207eaf3d
 
 /* ═══ DIFFICULTY PRESETS ═══ */
 const DIFF_CFG = {
-  easy:   { spawnBase: 1400, spawnMin: 750, hitRadius: 95, lives: 3, starGoal: 5,  duration: 60 },
+  easy:   { spawnBase: 1600, spawnMin: 850, hitRadius: 100, lives: 3, starGoal: 5,  duration: 60 },
   medium: { spawnBase: 1111, spawnMin: 583, hitRadius: 84, lives: 3, starGoal: 7,  duration: 60 },
   hard:   { spawnBase: 850,  spawnMin: 480, hitRadius: 72, lives: 2, starGoal: 10, duration: 60 }
 };
@@ -214,7 +213,6 @@ const PALETTES = {
 const CINEMA_TONES = {
   classic: { name: 'קלאסי', icon: '⚫' },
   sepia:   { name: 'ספיה',  icon: '🟤' },
-  noir:    { name: 'נואר',  icon: '🔵' },
   bleach:  { name: 'בליץ׳', icon: '🟠' }
 };
 
@@ -589,7 +587,7 @@ const RadiantPoster = ({ settings, onBackToEditor, hideBackBtn }) => {
   const finalStarsRef = useRef(0);
   const [endReason, setEndReason] = useState('');
 
-  const flowerPosRef = useRef({ x: 400, y: 290 });
+  const flowerPosRef = useRef({ x: 400, y: 440 });
   const entitiesRef = useRef([]);
   const livesRef = useRef(cfg.lives);
   const lastSpawnRef = useRef(0);
@@ -702,19 +700,24 @@ const RadiantPoster = ({ settings, onBackToEditor, hideBackBtn }) => {
     const spawnRate = Math.max(cfg.spawnMin, cfg.spawnBase - elapsedSec * 11.1);
     const baseSpeed = 1.05 + elapsedSec / 75;
 
-    if (!openingBurstRef.current && elapsedSec > 0.25) {
+    if (!openingBurstRef.current) {
       openingBurstRef.current = true;
-      const burstTypes = ['ladybug', 'star', 'bee'];
-      for (let k = 0; k < 3; k++) {
+      // אלמנטים הנראים כבר ברגע ההתחלה (y חיובי, מעל הפרח שב-y=440).
+      // רושם ראשוני ידידותי: 2 כוכבים, לב, פרת משה רבנו. בלי דבורים/עכבישים בזריקה ראשונה.
+      const burstTypes = ['star', 'heart', 'star', 'ladybug'];
+      for (let k = 0; k < 4; k++) {
         const t = burstTypes[k];
-        const sm = t === 'star' ? 0.6 : (t === 'ladybug' ? 0.95 : 0.9);
-        const burstY = -60 - k * 90 - Math.random() * 80;
+        const sm = t === 'star' ? 0.6 : (t === 'heart' ? 0.7 : 0.95);
+        const burstY = 80 + k * 90 + Math.random() * 40;
+        const baseX = isPortraitRef.current
+          ? 200 + k * 80 + (Math.random() - 0.5) * 50
+          : 140 + k * 150 + (Math.random() - 0.5) * 70;
         entitiesRef.current.push({
           id: Math.random().toString(),
-          x: 120 + k * 220 + (Math.random() - 0.5) * 80,
+          x: baseX,
           y: burstY,
           baseY: burstY,
-          speed: (baseSpeed + Math.random() * 0.45) * sm,
+          speed: (baseSpeed + Math.random() * 0.35) * sm,
           type: t,
           rotation: (Math.random() - 0.5) * 15,
           spawnTime: time
@@ -925,7 +928,7 @@ const RadiantPoster = ({ settings, onBackToEditor, hideBackBtn }) => {
     startTimeRef.current = 0;
     finalStarsRef.current = 0;
     openingBurstRef.current = false;
-    flowerPosRef.current = { x: 400, y: 290 };
+    flowerPosRef.current = { x: 400, y: 440 };
     ensureAudio();
     sndStart();
     setGameState('playing');
@@ -1446,7 +1449,6 @@ const RadiantPoster = ({ settings, onBackToEditor, hideBackBtn }) => {
                       settings.filter === 'dream'  ? 'saturate(1.15) brightness(1.06)' :
                       settings.filter === 'cinema' ? (
                         settings.cinemaTone === 'sepia'  ? 'grayscale(.25) sepia(.75) contrast(1.05) brightness(1.04)' :
-                        settings.cinemaTone === 'noir'   ? 'grayscale(.8) contrast(1.12) brightness(1) hue-rotate(200deg) saturate(1.15)' :
                         settings.cinemaTone === 'bleach' ? 'grayscale(.45) contrast(1.15) saturate(.8) brightness(1.08)' :
                         'grayscale(1) contrast(1.05) brightness(1.04)'
                       ) :
@@ -1467,12 +1469,6 @@ const RadiantPoster = ({ settings, onBackToEditor, hideBackBtn }) => {
                   <>
                     <circle cx="0" cy="0" r="82" fill="#3a200c" opacity="0.22" style={{ mixBlendMode: 'multiply' }}/>
                     <circle cx="0" cy="0" r="82" fill="#f4c878" opacity="0.2" style={{ mixBlendMode: 'overlay' }}/>
-                  </>
-                )}
-                {settings.filter === 'cinema' && settings.cinemaTone === 'noir' && (
-                  <>
-                    <circle cx="0" cy="0" r="82" fill="#08101e" opacity="0.32" style={{ mixBlendMode: 'multiply' }}/>
-                    <circle cx="0" cy="0" r="82" fill="#4a78c8" opacity="0.18" style={{ mixBlendMode: 'overlay' }}/>
                   </>
                 )}
                 {settings.filter === 'cinema' && settings.cinemaTone === 'bleach' && (
