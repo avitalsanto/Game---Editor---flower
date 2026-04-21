@@ -172,6 +172,7 @@ const PALETTES = {
     name: 'סגול', icon: '💜',
     bg: 'linear-gradient(135deg,#1a0b66 0%,#4e2291 40%,#a33a85 100%)',
     halo: '#d97ef5',
+    tint: 'rgba(140,60,220,0.38)',
     petalOuter: ['#0b04c9','#8735eb','#df8af2','#ffffff'],
     petalInner: ['#0802a3','#6e22cf','#d27df5','#ffffff'],
     stem:       ['#f76ae4','#2c14cc','#6cecf5'],
@@ -185,6 +186,7 @@ const PALETTES = {
     name: 'שקיעה', icon: '🔥',
     bg: 'linear-gradient(135deg,#2a0340 0%,#8a1a6d 30%,#e8413d 65%,#ffd86b 100%)',
     halo: '#ff9a4d',
+    tint: 'rgba(214,82,50,0.38)',
     petalOuter: ['#3a081c','#d6441f','#ffc878','#ffffff'],
     petalInner: ['#28061a','#a82e25','#ffddaa','#ffffff'],
     stem:       ['#ff4dbd','#c41a5a','#ffd86b'],
@@ -198,6 +200,7 @@ const PALETTES = {
     name: 'אוקיינוס', icon: '🌊',
     bg: 'linear-gradient(135deg,#081b5a 0%,#1566d6 35%,#3ec8dc 70%,#ff9fb8 100%)',
     halo: '#7ee8ff',
+    tint: 'rgba(50,130,210,0.38)',
     petalOuter: ['#0a2070','#1c7fd6','#8adff5','#ffffff'],
     petalInner: ['#071858','#1566c4','#aff0f8','#ffffff'],
     stem:       ['#ff77c8','#0e5cc4','#6cecf5'],
@@ -636,11 +639,13 @@ const RadiantPoster = ({ settings, onBackToEditor, hideBackBtn }) => {
   };
   const sndHit  = () => { beep(180, .25, 'triangle', .18, 60); };
   const sndLife = () => { beep(660, .12, 'triangle', .18, 990); setTimeout(()=>beep(990,.18,'triangle',.18,1320),90); };
-  const sndCombo= () => { beep(880,.08,'square',.14,1200); setTimeout(()=>beep(1320,.1,'square',.14,1760),70); };
+  const sndCombo= () => { beep(880,.08,'triangle',.16,1200); setTimeout(()=>beep(1320,.1,'triangle',.16,1760),70); };
   const sndOver = () => { beep(220,.6,'triangle',.20,55); };
   const sndStart= () => { beep(440,.1,'sine',.16,660); setTimeout(()=>beep(660,.15,'sine',.16,880),100); };
 
   const startAmbient = () => {
+    return; // השבתה: הסרנו את ה-drone המונוטוני של הרקע
+    // eslint-disable-next-line no-unreachable
     if (!soundOnRef.current) return;
     const ac = ensureAudio(); if (!ac) return;
     if (padNodesRef.current) return;
@@ -1456,6 +1461,9 @@ const RadiantPoster = ({ settings, onBackToEditor, hideBackBtn }) => {
                       undefined
                   }}
                 />
+                {settings.filter === 'original' && (
+                  <circle cx="0" cy="0" r="82" fill={pal.tint} style={{ mixBlendMode: 'multiply' }}/>
+                )}
                 {settings.filter === 'dream' && (
                   <>
                     <circle cx="0" cy="0" r="82" fill={pal.halo} opacity="0.28" style={{ mixBlendMode: 'screen' }}/>
